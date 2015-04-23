@@ -12,6 +12,14 @@ struct vertex{
   list<int> E_inv;
 };
 
+void print_path(list<int> p){
+  for(list<int>::iterator i=p.begin();
+      i!=p.end(); i++){
+    cout << *i << " ";
+  }
+  cout << endl;
+}
+
 void input(vector<vertex> &V){
   int nV, nE;
   cin >> nV >> nE;
@@ -31,56 +39,82 @@ void input(vector<vertex> &V){
   }
 }
 
-list<list<int> > construct_path_set(int k, int v, vector<bool> &C, vector<vertex> &V){
+bool node_necessary(int k, int v, vector<bool> &C, vector<vertex> &V){
+
   list<list<int> > P(1, list<int>(1,v));
-  list<list<int> > P_l(1, list<int>(1,v)); // Path Set s.t. its length = l+1
 
-  for(int l=1; l<k; l++){
-    list<list<int> > P_next;                   // Path Set s.t. its length = l+1
+  // construct path set P
 
-    for(list<list<int> >::iterator p = P_l.begin();
-        p != P_l.end(); p++){  // p : Path from v
+  list<list<int> > P_que(P); // Path Set s.t. its length = l+1
 
-      list<int> *next_nodes = &(V[p->back()].E);
+  while(!P_que.empty()){
 
-      for(list<int>::iterator n = next_nodes->begin();
-          n != next_nodes->end(); n++){  // n : next node
+    list<int> p = P_que.front();
+    P_que.pop_front();
 
-        if(find(p->begin(), p->end(), *n) != p->end()) continue; // p include n
-        if(C[*n]) continue; // C include n
+    for(list<int>::iterator n = V[p.back()].E.begin();
+        n != V[p.back()].E.end(); n++){  // n : next node
 
-        list<int> next_path(*p);
-        next_path.push_back(*n);
-        P_next.push_back(next_path);
-      }
+      if(find(p.begin(), p.end(), *n) != p.end()) continue; // p include n
+      if(C[*n]) continue; // C include n
+
+      if((int)p.size() ==  k-1) return true; // there is a k nodes path
+
+      list<int> next_path(p);
+      next_path.push_back(*n);
+      P.push_back(next_path);
+      P_que.push_back(next_path);
     }
 
-    P_l = P_next;
-    P.splice(P.end(), P_next);
   }
 
-  return P;
-}
+  /*for(list<list<int> >::iterator p = P.begin();
+      p != P.end(); p++) print_path(*p);
+  */
 
-bool node_necessary(int k, int v, vector<bool> &C, vector<vertex> &V){
-  list<list<int> > P = construct_path_set(k,v,C,V);
-  // Path Set s.t. its length = l
+  for(list<list<int> >::iterator p=P.begin();
+      p != P.end(); p++){
+
+    list<list<int> > path_stack(1, list<int>(1,v));
+
+    while(!path_stack.empty()){
+
+      list<int> r = path_stack.front();
+      path_stack.pop_front();
+
+      for(list<int>::iterator n = V[r.back()].E_inv.begin();
+          n != V[r.back()].E_inv.end(); n++){
+
+        if(find(r.begin(), r.end(), *n) != r.end()) continue; // r include n
+        if(find(p->begin(), p->end(), *n) != p->end()) continue; // p include n
+        if(C[*n]) continue; // r include n;
+        if((int)(p->size() + r.size()) == k) return true; // there is a k nodes path
+
+        list<int> rn(r);
+        rn.push_back(*n);
+        path_stack.push_front(rn);
+      }
+    }
+  }
 
   return false;
+}
+
+void print_cover(vector<bool> &C){
+  for(int i=0; i<C.size(); i++){
+    if(C[i]) cout << i << " ";
+  }
+  cout << endl;
 }
 
 vector<bool> APC(int k, vector<vertex> &V){
   vector<bool> C(V.size(), true);
 
-  return C;
-}
-
-void print_path(list<int> p){
-  for(list<int>::iterator i=p.begin();
-      i!=p.end(); i++){
-    cout << *i << " ";
+  for(int i=0; i < V.size(); i++){
+    if(!node_necessary(k, i, C, V)) C[i] = false;
   }
-  cout << endl;
+
+  return C;
 }
 
 int main(){
@@ -96,10 +130,8 @@ int main(){
     }
   }
 
-  vector<bool> C(V.size(), false);
-  list<list<int> > P = construct_path_set(4, 2, C, V);
-  for(list<list<int> >::iterator p = P.begin();
-      p != P.end(); p++) print_path(*p);
+  vector<bool> C = APC(4, V);
+  print_cover(C);
 
   return 0;
 }
