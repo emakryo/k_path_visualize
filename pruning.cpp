@@ -122,14 +122,6 @@ int main(){
 
   input(V);
 
-  for(vector<vertex>::iterator i=V.begin();
-      i != V.end(); i++){
-    for(list<int>::iterator j=i->E.begin();
-        j != i->E.end(); j++){
-      cout << i->id << " " << *j << endl;
-    }
-  }
-
   vector<bool> C = APC(4, V);
   print_cover(C);
 

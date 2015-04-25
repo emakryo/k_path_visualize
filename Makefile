@@ -2,7 +2,7 @@ CXX = clang++
 CXXFLAGS = -O2 -Wall
 
 all: a.out
-	./a.out < input.txt
+	./a.out
 
-a.out: pruning.cpp
+a.out: clip.cpp
 	$(CXX) $(CXXFLAGS) $<
