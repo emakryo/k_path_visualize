@@ -1,18 +1,25 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>NY Roads</title>
-    <script src="USA-road-d.NY_central.co.json"></script>
-    <script src="USA-road-d.NY_central.gr.json"></script>
+    <title>Road Network</title>
     <script src="draw.js"></script>
+    <style>
+     #canvas {
+       border: 1px solid #000000;
+     }
+     #datafile {
+       width: 300px;
+    </style>
   </head>
   <body>
-    <h1>NY Raods</h1>
+    <h1>Road Network</h1>
+    <input id="datafile">
+    <button id="button" type="button">draw</button>
     <p id="node"></p>
     <p id="arc"></p>
     <p id="xRange"></p>
     <p id="yRange"></p>
-    <canvas id="canvas" width="1000" height="600" style="border: 1px solid #000000;">
+    <canvas id="canvas" width="1000" height="600">
     </canvas>
   </body>
 </html>
