@@ -6,6 +6,8 @@
 #include<map>
 #include<string>
 #include<algorithm>
+#include<iterator>
+#include<cstdlib>
 using namespace std;
 
 struct vertex{
@@ -76,18 +78,77 @@ map<int, vertex> parse_DIMACS(string filename){
   return G;
 }
 
+map<int, vertex> parse_csv(string station, string join){
+  ifstream station_file(station);
+  ifstream join_file(join);
+
+  map<int, vertex> G;
+  map<pair<int, int>, int> co2id;
+  map<int, int> identity;
+
+  station_file.ignore(512, '\n');
+
+  while(true){
+    char buf[512];
+    station_file.getline(buf,512,',');
+    if(station_file.eof()) break;
+    int id = atoi(buf);
+    for(int i=0; i<8; i++) station_file.ignore(512, ',');
+    station_file.getline(buf,512,',');
+    int x = (int)(atof(buf)*1000000);
+    station_file.getline(buf,512,',');
+    int y = (int)(atof(buf)*1000000);
+    if(co2id.find(make_pair(x,y)) == co2id.end()){ //not found
+      co2id[make_pair(x,y)] = id;
+      identity[id] = id;
+      station_file.ignore(512,'\n');
+      G[id].x = x;
+      G[id].y = y;
+      G[id].E = list<int>();
+      G[id].E_inv = list<int>();
+    }
+    else{ // found
+      identity[id] = co2id[make_pair(x,y)];
+      station_file.ignore(512,'\n');
+    }
+  }
+
+  join_file.ignore(512,'\n');
+
+  while(true){
+    char buf[512];
+    join_file.ignore(512,',');
+    if(join_file.eof()) break;
+    join_file.getline(buf,512,',');
+    int a = identity[atoi(buf)];
+    join_file.getline(buf,512);
+    int b = identity[atoi(buf)];
+
+    if(G.find(a) == G.end() || G.find(b) == G.end()) continue;
+    G[a].E.push_back(b);
+    G[b].E.push_back(a);
+    G[a].E_inv.push_back(b);
+    G[b].E_inv.push_back(a);
+  }
+
+  return G;
+}
+
 map<int, vertex> clip(map<int, vertex> &G){
   map<int, vertex> H;
 
   int window_size[2] = {1000,600}; // x, y
-  int center_pos[2] = {40800000, -74000000}; // latitude, longitude
-  int longitude_range = 10000;
-  int latitude_range = (int)((double)longitude_range * (double)window_size[1] /
-                             (double)window_size[0]);
+  //int center_pos[2] = {40800000, -74000000}; // latitude, longitude NY road
+  long long center_pos[2] = {35681391,139766103}; // latitude, longitude JP rail
+  //long long longitude_range = 50000; //NY road
+  long long longitude_range = 20000000; // JP rail
+  long long latitude_range = (long long)((double)longitude_range *
+                                         (double)window_size[1] /
+                                         (double)window_size[0]);
 
-  int x_range[2] = {center_pos[1]-longitude_range/2,
+  long long x_range[2] = {center_pos[1]-longitude_range/2,
                     center_pos[1]+longitude_range/2};
-  int y_range[2] = {center_pos[0]-latitude_range/2,
+  long long y_range[2] = {center_pos[0]-latitude_range/2,
                     center_pos[0]+latitude_range/2};
 
   for(map<int, vertex>::iterator i = G.begin();
@@ -152,6 +213,8 @@ void output_json(string filename, map<int, vertex> &G){
 
   json_file << "nodes = {" << endl;
 
+  json_file << "\"0\":{\"x\":0,\"y\":0}," << endl;
+
   for(map<int, vertex>::iterator i = G.begin();
       i != G.end(); i++){
     json_file << "\"" << i->first << "\":{\"x\":" << i->second.x
@@ -160,22 +223,18 @@ void output_json(string filename, map<int, vertex> &G){
   json_file << "\"length\":" << G.size() << "};" << endl;
 
   json_file << "arcs = [" << endl;
+
   for(map<int, vertex>::iterator i = G.begin();
       i != G.end(); i++){
     for(list<int>::iterator j = i->second.E.begin();
         j != i->second.E.end(); j++){
-      if(next(j) != i->second.E.end() ||
-         next(i) != G.end()){
-        json_file << "{\"from\":" << i->first << ",\"to\":" << *j << "}," << endl;
-      }
-      else{
-        json_file << "{\"from\":" << i->first << ",\"to\":" << *j << "}" << endl;
-      }
+
+      json_file << "{\"from\":" << i->first << ",\"to\":" << *j << "}," << endl;
+
     }
   }
-  json_file << "];" << endl;
-  json_file << "draw();" << endl;
 
+  json_file << "{\"from\":0,\"to\":0}];" << endl;
 }
 
 bool node_necessary(int k, int v, set<int> &C, map<int, vertex> &V){
@@ -308,11 +367,23 @@ set<int> APC(int k, map<int, vertex> &G){
   }
   */
 
-  // prune by degree
   vector<int> nodes = sort(G);
   for(int i=0; i<(int)nodes.size(); i++){
     if(!node_necessary(k, nodes[i], C, G)) C.erase(nodes[i]);
   }
+
+  return C;
+}
+
+set<int> SPC_quick(int k, map<int, vertex> &G){
+  set<int> C;
+
+  for(map<int,vertex>::iterator i=G.begin();
+      i != G.end(); i++){
+    C.insert(i->first);
+  }
+
+  vector<int> nodes = sort(G);
 
   return C;
 }
@@ -358,13 +429,42 @@ map<int, vertex> overlay_graph(set<int> &C, map<int, vertex> &V){
   return H;
 }
 
+void output_degree_distribute(string filename, map<int, vertex> &G){
+  map<int, int> degree_distrebute;
+  for(map<int, vertex>::iterator i = G.begin();
+      i != G.end(); i++){
+    degree_distrebute[i->second.E.size()] += 1;
+  }
+
+  ofstream file(filename);
+  for(map<int, int>::iterator i = degree_distrebute.begin();
+      i != degree_distrebute.end(); i++){
+    file << i->first << " "  << i->second << endl;
+  }
+}
+
 int main(){
+
+  /*
   map<int, vertex> G = parse_DIMACS("USA-road-d.NY");
   map<int, vertex> H = clip(G);
-  output_json("USA-road-d.NY-rand",H);
-  set<int> C = APC(2,H);
-  map<int, vertex> F = overlay_graph(C, H);
-  output_json("USA-road-d.NY-rand-deg2", F);
+  cout << H.size() << endl;
+  output_degree_distribute("USA-road-d-degree-distribute.txt",H);
+  //output_json("USA-road-d.NY-rand",H);
+  //set<int> C = APC(8,H);
+  //map<int, vertex> F = overlay_graph(C, H);
+  //output_json("USA-road-d.NY-rand-id8", F);
+  */
+
+
+  map<int, vertex> G = parse_csv("station20150414free.csv", "join20150414.csv");
+  map<int, vertex> H = clip(G);
+  //output_json("JP-rail-Tokyo",H);
+  output_degree_distribute("JP-rail-Tokyo-degree-distribute.txt",H);
+  cout << H.size() << endl;
+  //set<int> C = APC(4,H);
+  //map<int, vertex> F = overlay_graph(C,H);
+  //output_json("JP-rail-Tokyo-deg4",F);
 
   return 0;
 }

@@ -1,7 +1,6 @@
 #include<iostream>
 #include<fstream>
 #include<set>
-#include<cmath>
 using namespace std;
 
 int main(){
@@ -9,8 +8,8 @@ int main(){
   ifstream co_file("USA-road-d.NY.co");
 
   int window_size[2] = {1000,600}; // x, y
-  int center_pos[2] = {40768000, -73990000}; // latitude, longitude
-  int longitude_range = 60000;
+  int center_pos[2] = {40757821, -73985755}; // latitude, longitude
+  int longitude_range = 50000;
   int latitude_range = (int)((double)longitude_range * (double)window_size[1] /
                              (double)window_size[0]);
 
